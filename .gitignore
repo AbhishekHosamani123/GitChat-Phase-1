@@ -1,0 +1,7 @@
+.env
+__pycache__/
+repos/
+repos.db
+logs.json
+testrepo/
+*.pyc
