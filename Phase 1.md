@@ -141,25 +141,31 @@ Add keyword index (e.g., `"keywords": ["user", "database", "create", "insert"]`)
   - **AST Context**: Replaced raw string chunks with enriched context: prepends the top-of-file imports and records the `parent_class` for nested methods.
   - **Noise Reduction**: Completely discards functions `< 5 lines` and ignores `tests` directories during ingestion. This drastically improved quality on `pallets/click` (reducing ~1800 chunks to 782 high-value blocks).
 
-### 3. Embedding Generation - **[PENDING]**
-- **Objective:** Convert the text chunks into vector representations using an LLM embedding model (e.g., Gemini).
-- **Tasks to do:**
-  - Integrate with the embedding API.
-  - Process chunks in batches to handle rate limits.
+### 3. Embedding Generation - **[COMPLETED]**
+- **Date:** 2026-03-04
+- **Objective:** Convert the text chunks into vector representations using an LLM embedding model.
+- **Features Implemented:**
+  - Integrated with the **Google Gemini API** (`models/gemini-embedding-001`).
+  - Created `embedding_worker.py` as a continuously running background script.
+  - Pulls pending batches asynchronously from the Supabase SQL database to respect free-tier API rate limits.
 
-### 4. Vector Database Storage - **[PENDING]**
+### 4. Vector Database Storage - **[COMPLETED]**
+- **Date:** 2026-03-04
 - **Objective:** Store the embeddings and chunk metadata in a database for fast similarity search.
-- **Tasks to do:**
-  - Set up a local vector store (like ChromaDB, FAISS, or SQLite with VSS) or a cloud structured DB (like Supabase pg-vector).
-  - Insert the generated embeddings alongside the text chunks.
+- **Features Implemented:**
+  - Initialized a **Pinecone Serverless Index** (`gitchat`) with a dimension of `3072` (matching Gemini).
+  - Designed the storage schema to logically isolate vectors using Pinecone namespaces (`repo_id`).
+  - Seamlessly updates `embedding_status` to `"indexed"` in Supabase after successful upserts.
 
-### 5. Chat & Retrieval Interface - **[PENDING]**
-- **Objective:** Create a query interface to ask questions against the ingested repository.
-- **Tasks to do:**
-  - Accept a user query and embed it.
-  - Perform semantic search against the vector database to retrieve the relevant chunks.
-  - Pass the retrieved context to an LLM to generate an answer.
-  - Build a simple CLI or API to interact with the bot.
+### 5. Chat & Retrieval Interface (Phase 2 & 3) - **[COMPLETED]**
+- **Date:** 2026-03-04
+- **Objective:** Create an interface and HTTP API to ask questions against the ingested repository with extreme precision.
+- **Features Implemented:**
+  - **Hybrid Reranking:** Queries Pinecone for initial cosine similarity but re-ranks results locally against SQLite. Formula: `Pinecone (70%) + Keyword Overlap (25%) + Symbol Exact Match (10%) + File Importance (5%)`.
+  - **Source Citations:** Appends strict tracking for the exact `file_path`, `start_line`, and `end_line` that the LLM used for its answer.
+  - **Confidence Score & Failures:** Calculates an algorithmic Confidence ratio out of 1.0 based on initial retrieval scores. Automatically returns an explicit warning if the retrieved context score drops < 0.35.
+  - **Retrieval Logging:** Silently commits a JSON record of every query, including top `chunk_ids` and scores, to `logs.json` for observability/auto-evaluation. 
+  - **FastAPI HTTP Web Server:** Re-architected scripts into callable services. Hosted them behind endpoints `POST /repos/ingest`, `GET /repos/{repo_id}/status`, and `POST /chat` using FastAPI (`main.py`) to transition exactly into Web Product grade. 
 
 ---
 *This document will be updated continuously as we progress through the development steps.*
